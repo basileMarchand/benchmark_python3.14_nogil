@@ -18,7 +18,7 @@ docker run -it python:nogil_3.14b2
 
 ## 📝 Related Article
 
-The full article describing these benchmarks is available on dev.to 
+The full article describing these benchmarks is available on [dev.to](https://dev.to/basilemarchand/benchmarks-of-python-314b2-with-disable-gil-1ml3)
 
 
 
