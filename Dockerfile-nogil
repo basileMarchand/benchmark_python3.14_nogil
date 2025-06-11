@@ -1,0 +1,66 @@
+FROM debian:bookworm
+
+# Variables
+ENV LLVM_VERSION=19
+ENV PYTHON_VERSION=3.14.0
+ENV PYTHON_VERSION_BETA=${PYTHON_VERSION}b2
+
+
+# Dépendances nécessaires
+# Installer dépendances système
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget curl gnupg ca-certificates lsb-release software-properties-common \
+    build-essential \
+    git \
+    libssl-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    zlib1g-dev \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ajouter dépôt officiel LLVM et installer LLVM 19
+RUN wget https://apt.llvm.org/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh ${LLVM_VERSION} all && \
+    rm llvm.sh
+
+# Télécharger et compiler Python avec JIT
+RUN wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION_BETA}.tgz  && \
+    tar -xzf Python-${PYTHON_VERSION_BETA}.tgz && \
+    rm Python-${PYTHON_VERSION_BETA}.tgz && \
+    cd Python-${PYTHON_VERSION_BETA} && \
+    ./configure --prefix=/opt/python-${PYTHON_VERSION} --disable-gil --enable-optimizations --with-ensurepip=install  && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && rm -rf Python-${PYTHON_VERSION}
+
+# Ajout de Python au PATH
+ENV PATH="/opt/python-${PYTHON_VERSION}/bin:$PATH"
+ENV LD_LIBRARY_PATH="/opt/python-${PYTHON_VERSION}/lib"
+
+RUN python3 -m pip install numpy nanobind
+
+ADD . /data
+WORKDIR /data/plugin
+
+ENV CMAKE_PREFIX_PATH="/opt/python-${PYTHON_VERSION}/lib/python3.14t/site-packages/nanobind/cmake"
+
+RUN cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_LIBDIR=/data && \
+    cmake --build build &&\
+    cmake --install build && \
+    rm -rf build 
+
+WORKDIR /data
+
+# Execute bash script 
+CMD ["/bin/bash", "run_tests.sh"]
+
